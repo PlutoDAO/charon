@@ -4,6 +4,7 @@ import {LAMPORTS_PER_SOL, sendAndConfirmRawTransaction} from '@solana/web3.js'
 import {
     Asset,
     BASE_FEE,
+    Horizon,
     Keypair,
     Server,
     Transaction,
@@ -11,7 +12,8 @@ import {
 } from 'stellar-sdk'
 import {Controller, User, Validator} from '../src/domain'
 import {BridgeService} from '../src/service/bridge.service'
-import {getOrCreateAssociatedTokenAccount} from '@solana/spl-token'
+import { getOrCreateAssociatedTokenAccount } from '@solana/spl-token'
+import TransactionResponse = Horizon.TransactionResponse
 
 jest.setTimeout(30000000)
 
@@ -294,7 +296,7 @@ describe('Charon', () => {
 
                 completeLockAssetIntoStellarTx.sign(firstValidatorStellarKeyPair)
 
-                const result = await server.submitTransaction(completeLockAssetIntoStellarTx)
+                const result = (await server.submitTransaction(completeLockAssetIntoStellarTx)) as TransactionResponse
 
                 console.log('Successfully locked assets. Stellar tx id: ', result.id)
             } catch (e) {
