@@ -296,7 +296,7 @@ describe('Charon', () => {
 
                 const result = await server.submitTransaction(completeLockAssetIntoStellarTx)
 
-                console.log(result)
+                console.log('Successfully locked assets. Stellar tx id: ', result.id)
             } catch (e) {
                 console.error(e)
                 throw e

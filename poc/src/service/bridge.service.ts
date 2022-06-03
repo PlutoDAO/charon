@@ -17,6 +17,7 @@ import { SystemProgram, Transaction } from '@solana/web3.js'
 import { NoVaultsError } from '../domain/errors'
 import crypto from 'crypto'
 import { Buffer } from 'buffer'
+import base58 from 'bs58'
 import BalanceLineAsset = Horizon.BalanceLineAsset
 
 export interface ICreateSolanaMintResult {
@@ -470,7 +471,7 @@ export class BridgeService {
 
         tx.partialSign(this.solanaControllerKeyPair)
         const signature = tx.signatures.filter((s) => s.signature).pop()
-        const sha256Signature = crypto.createHash('sha256').update(signature.signature).digest('hex')
+        const sha256Signature = crypto.createHash('sha256').update(base58.encode(signature.signature)).digest('hex')
         // clear the signature so it can't be signed by validators yet
         signature.signature = null
 
@@ -521,7 +522,7 @@ export class BridgeService {
         const tx = web3.Transaction.from(txBuffer)
         tx.partialSign(this.solanaControllerKeyPair)
         const signature = tx.signatures.filter((s) => s.signature).pop()
-        const sha256Signature = crypto.createHash('sha256').update(signature.signature).digest('hex')
+        const sha256Signature = crypto.createHash('sha256').update(base58.encode(signature.signature)).digest('hex')
 
         if (etxaTargetTransactionId !== sha256Signature) {
             throw new Error('Signature mismatch. ETxA and Solana transaction signature do not match.')
