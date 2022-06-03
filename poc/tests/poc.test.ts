@@ -72,8 +72,8 @@ describe('Charon', () => {
         })
     })
 
-    describe('Validator registration', () => {
-        it('Should register a validator', async () => {
+    describe('E2E Scenario', () => {
+        it('Should bridge XLM to wXLM', async () => {
             try {
                 // Setup and fund accounts
                 const stellarControllerKeyPair = Keypair.random()
@@ -243,21 +243,27 @@ describe('Charon', () => {
                 )
                 lockIntoStellarFeeBump.sign(userStellarKeyPair)
 
-                await server.submitTransaction(lockIntoStellarFeeBump)
+                const lockIntoStellarResponse = (await server.submitTransaction(
+                    lockIntoStellarFeeBump
+                )) as TransactionResponse
+                console.log('lock into stellar, tx id:', lockIntoStellarResponse.id)
 
                 // Begin mint wrapped assets in Solana
                 const beginMintWrappedSolanaAssetIntent = await bridgeService.beginMintWrappedSolanaAsset(
                     user,
                     beginLockIntoStellarIntent.etxaPublicKey
                 )
-                console.log(beginMintWrappedSolanaAssetIntent)
+                console.log('begin mint wrapped solana asset intent', beginMintWrappedSolanaAssetIntent)
 
                 const beginMintWrappedSolanaAssetTx = TransactionBuilder.fromXDR(
                     beginMintWrappedSolanaAssetIntent.transactionXdr,
                     process.env.HORIZON_NETWORK_PASSPHRASE
                 )
                 beginMintWrappedSolanaAssetTx.sign(firstValidatorStellarKeyPair)
-                await server.submitTransaction(beginMintWrappedSolanaAssetTx)
+                const beginMintWrappedSolanaAssetTxResult = (await server.submitTransaction(
+                    beginMintWrappedSolanaAssetTx
+                )) as TransactionResponse
+                console.log('Begin mint wrapped solana asset, tx id:', beginMintWrappedSolanaAssetTxResult.id)
 
                 // Complete mint wrapped assets in Solana
                 const mintWrappedSolanaAssetIntent = await bridgeService.completeMintWrappedSolanaAsset(

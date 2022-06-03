@@ -81,7 +81,8 @@ export class BridgeService {
         public stellarControllerKeyPair: Keypair,
         public stellarControllerConfigKeyPair: Keypair,
         public solanaControllerKeyPair: web3.Keypair
-    ) {}
+    ) {
+    }
 
     async getSolanaMint(asset: Asset): Promise<Mint> {
         const account = await this.horizonServer.loadAccount(this.stellarControllerConfigKeyPair.publicKey())
@@ -297,12 +298,12 @@ export class BridgeService {
                 multiSigKeyPair.publicKey,
                 validatorsPublicKeys.length
                     ? [
-                          this.solanaControllerKeyPair,
-                          ...validatorsPublicKeys.map((publicKey) => ({
-                              publicKey: publicKey,
-                              secretKey: null,
-                          })),
-                      ]
+                        this.solanaControllerKeyPair,
+                        ...validatorsPublicKeys.map((publicKey) => ({
+                            publicKey: publicKey,
+                            secretKey: null,
+                        })),
+                    ]
                     : []
             )
         )
@@ -314,7 +315,7 @@ export class BridgeService {
             controllerPublicKey: this.solanaControllerKeyPair.publicKey.toBase58(),
             multiSigPublicKey: multiSigKeyPair.publicKey.toBase58(),
             validatorPublicKey: validatorPublicKey.toBase58(),
-            solanaTransactionBase64: Buffer.from(tx.serialize({ requireAllSignatures: false })).toString('base64'),
+            solanaTransactionBase64: Buffer.from(tx.serialize({requireAllSignatures: false})).toString('base64'),
         }
     }
 
@@ -417,6 +418,13 @@ export class BridgeService {
                     value: 'source_started',
                 })
             )
+            .addOperation(
+                Operation.manageData({
+                    source: etxa.publicKey(),
+                    name: 'amount',
+                    value: (Number(amount) * 10_000_000).toFixed(0), //todo: use bignumber
+                })
+            )
             .setTimeout(30)
             .build()
 
@@ -432,15 +440,15 @@ export class BridgeService {
 
     async beginMintWrappedSolanaAsset(user: User, etxaPublicKey: string): Promise<IBeginMintWrappedSolanaAssetIntent> {
         const etxa = await this.horizonServer.loadAccount(etxaPublicKey)
-        let asset, firstBalance
+        let asset
         if (etxa.balances.length === 1) {
-            firstBalance = etxa.balances[0]
             asset = Asset.native()
         } else {
-            firstBalance = etxa.balances.find((b) => b.asset_type !== 'native') as BalanceLineAsset
+            const firstBalance = etxa.balances.find((b) => b.asset_type !== 'native') as BalanceLineAsset
             asset = new Asset(firstBalance.asset_code, firstBalance.asset_issuer)
         }
-        const amount = firstBalance.balance
+        // 10_000_000 = 1 wXLM
+        const amount = Buffer.from(etxa.data_attr['amount'], 'base64').toString('utf8')
         const mint = await this.getSolanaMint(asset)
 
         const targetWallet = new web3.PublicKey(Buffer.from(etxa.data_attr['target_wallet'], 'base64').toString('utf8'))
@@ -449,7 +457,6 @@ export class BridgeService {
             .filter((v) => v)
             .map((validator) => new web3.PublicKey(validator.solanaPublicKey))
 
-        // 10_000_000 = 1 wXLM
         const tx = new Transaction({
             feePayer: new web3.PublicKey(user.solanaPublicKey),
             recentBlockhash: (await this.solanaConnection.getLatestBlockhash()).blockhash,
@@ -458,7 +465,7 @@ export class BridgeService {
                 new web3.PublicKey(mint.mintPublicKey),
                 targetWallet,
                 new web3.PublicKey(mint.authority),
-                amount * 10_000_000,
+                Number(amount), // todo: Use bignumber
                 [
                     this.solanaControllerKeyPair,
                     ...validatorsPublicKeys.map((publicKey) => ({
@@ -502,7 +509,7 @@ export class BridgeService {
             transactionXdr: stellarTx.toXDR(),
             targetWalletPublicKey: targetWallet.toBase58(),
             mintPublicKey: mint.mintPublicKey,
-            solanaTransactionBase64: Buffer.from(tx.serialize({ requireAllSignatures: false })).toString('base64'),
+            solanaTransactionBase64: Buffer.from(tx.serialize({requireAllSignatures: false})).toString('base64'),
             controllerPublicKey: this.solanaControllerKeyPair.publicKey.toBase58(),
             mintAuthorityPublicKey: mint.authority,
             solanaTransactionSignatureSha256: sha256Signature,
@@ -530,7 +537,7 @@ export class BridgeService {
 
         return {
             targetWalletPublicKey: targetWallet.toBase58(),
-            solanaTransactionBase64: Buffer.from(tx.serialize({ requireAllSignatures: false })).toString('base64'),
+            solanaTransactionBase64: Buffer.from(tx.serialize({requireAllSignatures: false})).toString('base64'),
             controllerPublicKey: this.solanaControllerKeyPair.publicKey.toBase58(),
             solanaTransactionSignatureSha256: etxaTargetTransactionId,
         }
@@ -545,10 +552,6 @@ export class BridgeService {
         const etxa = await this.horizonServer.loadAccount(etxaPublicKey)
 
         const etxaTargetTransactionId = Buffer.from(etxa.data_attr['target_transaction_id'], 'base64').toString('utf8')
-        const mappedTransactions = solanaTransaction.transaction.signatures.map((s) => [
-            s,
-            crypto.createHash('sha256').update(s).digest('hex'),
-        ])
         const isValidTransaction = solanaTransaction.transaction.signatures.some(
             (s) => crypto.createHash('sha256').update(s).digest('hex') === etxaTargetTransactionId
         )
@@ -564,14 +567,17 @@ export class BridgeService {
             firstBalance = etxa.balances.find((b) => b.asset_type !== 'native') as BalanceLineAsset
             asset = new Asset(firstBalance.asset_code, firstBalance.asset_issuer)
         }
-        const amount = firstBalance.balance
+
         const mint = await this.getSolanaMint(asset)
         const controller = new Controller(await this.getExistingVaults(), [mint])
         const vault = controller.mintWrappedAsset()
 
         // todo: this should also filter by sponsor
-        const claimableBalance = await this.horizonServer.claimableBalances().claimant(etxa.accountId()).call()
-        const claimableBalanceId = claimableBalance.records.at(0).id
+        const claimableBalances = await this.horizonServer.claimableBalances().claimant(etxa.accountId()).call()
+        const claimableBalance = claimableBalances.records.at(0);
+        const claimableBalanceId = claimableBalance.id
+        const amount = claimableBalance.amount;
+        
         const tx = new TransactionBuilder(await this.horizonServer.loadAccount(etxaPublicKey), {
             fee: BASE_FEE,
             networkPassphrase: process.env.HORIZON_NETWORK_PASSPHRASE,
