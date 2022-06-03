@@ -8,7 +8,7 @@ use anchor_spl::{
 #[instruction(code: [u8; 12])]
 pub struct MintWrappedAssetInstruction<'info> {
     #[account(
-    init_if_needed,
+    init,
     payer = receiver,
     associated_token::mint = mint,
     associated_token::authority = receiver

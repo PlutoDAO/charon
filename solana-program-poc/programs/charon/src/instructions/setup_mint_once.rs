@@ -4,7 +4,7 @@ use anchor_spl::{
 };
 
 #[derive(Accounts)]
-#[instruction(code: [u8; 12])]
+#[instruction(code: [u8; 12], multi_sig: Pubkey)]
 pub struct SetupMintOnceInstruction<'info> {
     #[account(
     init_if_needed,
@@ -12,7 +12,7 @@ pub struct SetupMintOnceInstruction<'info> {
     seeds = [b"charon".as_ref(), &code],
     bump,
     mint::decimals = 7,
-    mint::authority = mint
+    mint::authority = multi_sig
     )]
     pub mint: Account<'info, Mint>,
     #[account(mut)]

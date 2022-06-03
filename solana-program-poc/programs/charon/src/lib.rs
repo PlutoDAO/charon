@@ -11,7 +11,7 @@ declare_id!("ArWpEgPv1eM8m7tU1L8hVN1Zh4vXQLi7kC4wko9SSmB1");
 pub mod charon {
     use super::*;
 
-    pub fn setup_mint(_ctx: Context<SetupMintOnceInstruction>, _code: [u8; 12]) -> Result<()> {
+    pub fn setup_mint(_ctx: Context<SetupMintOnceInstruction>, _code: [u8; 12], _signer: Pubkey) -> Result<()> {
         msg!(&String::from_utf8(_code.to_vec()).unwrap());
         Ok(())
     }
